@@ -26,7 +26,7 @@ func main() {
 
 	body, err := ioutil.ReadFile(*feedPath)
 	if err != nil {
-		logger.Printf("could not read feeds from %s: %v", *feedPath, err)
+		logger.Fatalf("could not read feeds from %s: %v", *feedPath, err)
 	}
 	urls := strings.Split(string(body), "\n")
 
@@ -52,7 +52,7 @@ func main() {
 		}).
 		ParseFiles(*tmplPath)
 	if err != nil {
-		logger.Printf("could not parse template: %v", err)
+		logger.Fatalf("could not parse template: %v", err)
 	}
 
 	data := struct {
@@ -60,6 +60,6 @@ func main() {
 		Updated time.Time
 	}{items, time.Now()}
 	if err := tmpl.Execute(os.Stdout, data); err != nil {
-		logger.Printf("could not execute template: %v", err)
+		logger.Fatalf("could not execute template: %v", err)
 	}
 }
