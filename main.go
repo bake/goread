@@ -1,3 +1,5 @@
+//go:generate go run generate.go
+
 package main
 
 import (
@@ -17,7 +19,7 @@ import (
 
 func main() {
 	feedPath := flag.String("feeds", "feeds.txt", "Path to a list of feed URLs")
-	tmplPath := flag.String("template", "template.html", "Path to the HTML template")
+	tmplPath := flag.String("template", "", "Path to the HTML template")
 	maxItems := flag.Int("max-items", 100, "Max number of items")
 	flag.Parse()
 
@@ -45,12 +47,13 @@ func main() {
 		items = items[:*maxItems]
 	}
 
-	tmpl, err := template.New(path.Base(*tmplPath)).
-		Funcs(template.FuncMap{
-			"sanitize": bluemonday.StrictPolicy().Sanitize,
-			"trim":     strings.TrimSpace,
-		}).
-		ParseFiles(*tmplPath)
+	tmpl, err := template.New(path.Base(*tmplPath)).Funcs(template.FuncMap{
+		"sanitize": bluemonday.StrictPolicy().Sanitize,
+		"trim":     strings.TrimSpace,
+	}).Parse(feedTmpl)
+	if *tmplPath != "" {
+		tmpl, err = tmpl.ParseFiles(*tmplPath)
+	}
 	if err != nil {
 		logger.Fatalf("could not parse template: %v", err)
 	}
