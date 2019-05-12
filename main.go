@@ -20,7 +20,8 @@ import (
 var version = "development"
 
 func main() {
-	feedPath := flag.String("feeds", "feeds.txt", "Path to a list of feed URLs")
+	inPath := flag.String("in", "feeds.txt", "Path to a list of feed URLs")
+	outPath := flag.String("out", "feeds.html", "Path to generated HTML")
 	tmplPath := flag.String("template", "", "Path to the HTML template")
 	maxItems := flag.Int("max-items", 100, "Max number of items")
 	flag.Parse()
@@ -28,9 +29,9 @@ func main() {
 	logger := log.New(os.Stderr, "", log.Lshortfile)
 	client := http.DefaultClient
 
-	body, err := ioutil.ReadFile(*feedPath)
+	body, err := ioutil.ReadFile(*inPath)
 	if err != nil {
-		logger.Fatalf("could not read feeds from %s: %v", *feedPath, err)
+		logger.Fatalf("could not read feeds from %s: %v", *inPath, err)
 	}
 	var urls []string
 	for _, url := range strings.Split(string(body), "\n") {
@@ -70,7 +71,11 @@ func main() {
 		Updated time.Time
 		Version string
 	}{items, time.Now(), version}
-	if err := tmpl.Execute(os.Stdout, data); err != nil {
+	w, err := os.Create(*outPath)
+	if err != nil {
+		logger.Fatalf("could not generate output file: %v", err)
+	}
+	if err := tmpl.Execute(w, data); err != nil {
 		logger.Fatalf("could not execute template: %v", err)
 	}
 }
