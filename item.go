@@ -1,16 +1,19 @@
 package main
 
-import "github.com/mmcdole/gofeed"
+import (
+	"time"
 
-type Item struct {
+	"github.com/mmcdole/gofeed"
+)
+
+type item struct {
 	gofeed.Item
 	Feed gofeed.Feed
+	Time time.Time
 }
 
-type SortByPublished []Item
+type sortByPublished []item
 
-func (is SortByPublished) Len() int { return len(is) }
-func (is SortByPublished) Less(i, j int) bool {
-	return is[i].PublishedParsed.Before(*is[j].PublishedParsed)
-}
-func (is SortByPublished) Swap(i, j int) { is[i], is[j] = is[j], is[i] }
+func (is sortByPublished) Len() int           { return len(is) }
+func (is sortByPublished) Less(i, j int) bool { return is[i].Time.Before(is[j].Time) }
+func (is sortByPublished) Swap(i, j int)      { is[i], is[j] = is[j], is[i] }

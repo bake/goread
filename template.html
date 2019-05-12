@@ -20,13 +20,14 @@
 						</h5>
 						<p class="card-text text-truncate">
 							{{.Description | sanitize | trim}}
+							{{.Content | sanitize | trim}}
 						</p>
 						<p class="card-text">
 							<small class="mr-3">
 								<a href="{{.Feed.Link}}" class="text-muted">{{.Feed.Title | sanitize | trim}}</a>
 							</small>
 							<small class="mr-3 text-muted">
-								{{.PublishedParsed.Format "02. Jan 2006"}}
+								{{.Time.Format "02. Jan 2006"}}
 							</small>
 						</p>
 					</div>

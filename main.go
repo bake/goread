@@ -44,13 +44,20 @@ func main() {
 	if err != nil {
 		logger.Printf("could not fetch feeds: %v", err)
 	}
-	var items []Item
+	var items []item
 	for _, f := range feeds {
 		for _, i := range f.Items {
-			items = append(items, Item{*i, *f})
+			t := time.Time{}
+			if i.PublishedParsed != nil {
+				t = *i.PublishedParsed
+			}
+			if i.UpdatedParsed != nil {
+				t = *i.UpdatedParsed
+			}
+			items = append(items, item{*i, *f, t})
 		}
 	}
-	sort.Sort(sort.Reverse(SortByPublished(items)))
+	sort.Sort(sort.Reverse(sortByPublished(items)))
 	if len(items) > *maxItems {
 		items = items[:*maxItems]
 	}
@@ -67,7 +74,7 @@ func main() {
 	}
 
 	data := struct {
-		Items   []Item
+		Items   []item
 		Updated time.Time
 		Version string
 	}{items, time.Now(), version}
