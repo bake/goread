@@ -1,5 +1,7 @@
 # goread
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/bake/goread)](https://goreportcard.com/report/github.com/bake/goread)
+
 Static RSS reader generator.
 
 ```bash
