@@ -25,7 +25,7 @@ func main() {
 	}
 	w, err := os.Create("template.go")
 	if err != nil {
-		log.Fatalf("could not creage generated template file: %v", err)
+		log.Fatalf("could not create generated template file: %v", err)
 	}
 	if err := tmpl.Execute(w, string(body)); err != nil {
 		log.Fatalf("could not execute template: %v", err)
