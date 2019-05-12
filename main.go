@@ -30,7 +30,12 @@ func main() {
 	if err != nil {
 		logger.Fatalf("could not read feeds from %s: %v", *feedPath, err)
 	}
-	urls := strings.Split(string(body), "\n")
+	var urls []string
+	for _, url := range strings.Split(string(body), "\n") {
+		if url != "" {
+			urls = append(urls, url)
+		}
+	}
 
 	feeds, err := fetchAll(client, urls)
 	if err != nil {
