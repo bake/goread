@@ -17,6 +17,8 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 )
 
+var version = "development"
+
 func main() {
 	feedPath := flag.String("feeds", "feeds.txt", "Path to a list of feed URLs")
 	tmplPath := flag.String("template", "", "Path to the HTML template")
@@ -66,7 +68,8 @@ func main() {
 	data := struct {
 		Items   []Item
 		Updated time.Time
-	}{items, time.Now()}
+		Version string
+	}{items, time.Now(), version}
 	if err := tmpl.Execute(os.Stdout, data); err != nil {
 		logger.Fatalf("could not execute template: %v", err)
 	}
