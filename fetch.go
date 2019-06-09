@@ -35,6 +35,7 @@ func fetchAll(urls []string, n int64) (chan *gofeed.Feed, chan error) {
 			sem.Acquire(ctx, 1)
 			url := url
 			go func() {
+				defer sem.Release(1)
 				feed, err := fetch(url)
 				if err != nil {
 					errc <- err
