@@ -12,7 +12,8 @@ import (
 var mainTmpl = `
 package main
 
-var feedTmpl = ` + "`{{.}}`"
+var feedTmpl = ` + "`{{.}}`" + `
+`
 
 func main() {
 	tmpl, err := template.New("template").Parse(mainTmpl)

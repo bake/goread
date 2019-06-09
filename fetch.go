@@ -2,17 +2,15 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 
 	"github.com/mmcdole/gofeed"
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
 
-func fetch(c *http.Client, url string) (*gofeed.Feed, error) {
-	res, err := c.Get(url)
+func fetch(url string) (*gofeed.Feed, error) {
+	res, err := http.Get(url)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get feed at %s", url)
 	}
@@ -25,35 +23,27 @@ func fetch(c *http.Client, url string) (*gofeed.Feed, error) {
 	return f, nil
 }
 
-func fetchAll(c *http.Client, urls []string) ([]*gofeed.Feed, error) {
-	con := int64(2)
-	sem := semaphore.NewWeighted(int64(con))
+func fetchAll(urls []string, n int64) (chan *gofeed.Feed, chan error) {
+	sem := semaphore.NewWeighted(n)
 	ctx := context.Background()
-	var g errgroup.Group
 	feedc := make(chan *gofeed.Feed)
+	errc := make(chan error)
 	go func() {
+		defer close(errc)
 		defer close(feedc)
 		for _, url := range urls {
 			sem.Acquire(ctx, 1)
 			url := url
-			g.Go(func() error {
-				defer sem.Release(1)
-				feed, err := fetch(c, url)
+			go func() {
+				feed, err := fetch(url)
 				if err != nil {
-					return errors.Wrapf(err, "could not get %s", url)
+					errc <- err
+					return
 				}
 				feedc <- feed
-				return nil
-			})
+			}()
 		}
-		sem.Acquire(ctx, con)
+		sem.Acquire(ctx, n)
 	}()
-	var feeds []*gofeed.Feed
-	for feed := range feedc {
-		feeds = append(feeds, feed)
-	}
-	if err := g.Wait(); err != nil {
-		log.Println(err)
-	}
-	return feeds, nil
+	return feedc, errc
 }

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width" />
+
+	<title>{{.Category}} - goread</title>
+</head>
+
+<body>
+	<h1><a href="index.html">goread</a></h1>
+
+	<ul>
+		{{range .Categories}}
+		<li><a href="{{.}}.html">{{.}}</a></li>
+		{{end}}
+	</ul>
+
+	<hr>
+
+	{{range.Items}}
+	<article>
+		<h2>
+			<a href="{{.Link}}" target="_blank">{{.Title | sanitize | trim}}</a>
+		</h2>
+		<small>
+			by <a href="{{.Feed.Link}}">{{.Feed.Title | sanitize | trim}}</a>
+			on {{.Time.Format "02. Jan 2006"}}
+		</small>
+		<p>
+			{{.Description | sanitize | trim | truncate}}
+			{{.Content | sanitize | trim | truncate}}
+		</p>
+		</div>
+	</article>
+
+	<hr>
+	{{end}}
+
+	<footer>
+		Updated {{.Updated.Format "02. Jan 2006 at 15:04"}}. Version {{.Version}}.
+	</footer>
+</body>
+
+</html>

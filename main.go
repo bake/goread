@@ -4,46 +4,92 @@ package main
 
 import (
 	"flag"
-	"html/template"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"path"
 	"sort"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/mmcdole/gofeed"
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
 var version = "development"
 
 func main() {
-	inPath := flag.String("in", "feeds.txt", "Path to a list of feed URLs")
-	outPath := flag.String("out", "feeds.html", "Path to generated HTML")
+	inPath := flag.String("in", "feeds.yml", "Path to a list of feed URLs")
+	outPath := flag.String("out", ".", "Path to generated HTML")
 	tmplPath := flag.String("template", "", "Path to the HTML template")
 	maxItems := flag.Int("max-items", 100, "Max number of items")
+	concurrent := flag.Int64("n", 5, "Number of concurrent downloads")
 	flag.Parse()
 
-	logger := log.New(os.Stderr, "", log.Lshortfile)
-	client := http.DefaultClient
-
-	body, err := ioutil.ReadFile(*inPath)
+	r, err := os.Open(*inPath)
 	if err != nil {
-		logger.Fatalf("could not read feeds from %s: %v", *inPath, err)
+		log.Fatalf("could not open feeds: %v", err)
 	}
-	var urls []string
-	for _, url := range strings.Split(string(body), "\n") {
-		if url != "" {
-			urls = append(urls, url)
+	var cats map[string][]string
+	if err := yaml.NewDecoder(r).Decode(&cats); err != nil {
+		log.Fatal(err)
+	}
+
+	var catNames []string
+	for cat := range cats {
+		catNames = append(catNames, cat)
+	}
+	sort.Strings(catNames)
+
+	tmpl := template.Must(template.New(path.Base(*tmplPath)).Funcs(template.FuncMap{
+		"sanitize": bluemonday.StrictPolicy().Sanitize,
+		"trim":     strings.TrimSpace,
+		"truncate": func(str string) string {
+			if len(str) <= 256 {
+				return str
+			}
+			return str[:256] + " …"
+		},
+	}).Parse(feedTmpl))
+	if *tmplPath != "" {
+		tmpl, err = tmpl.ParseFiles(*tmplPath)
+	}
+	if err != nil {
+		log.Fatalf("could not parse template: %v", err)
+	}
+
+	var allFeeds []*gofeed.Feed
+	for cat, urls := range cats {
+		var feeds []*gofeed.Feed
+		feedc, errc := fetchAll(urls, *concurrent)
+		for i := 0; i < len(urls); i++ {
+			select {
+			case feed := <-feedc:
+				feeds = append(feeds, feed)
+			case err := <-errc:
+				log.Printf("could not fetch feed from %s: %v\n", cat, err)
+			}
+		}
+		if len(feeds) > *maxItems {
+			feeds = feeds[:*maxItems]
+		}
+		allFeeds = append(allFeeds, feeds...)
+		if err := render(cat, catNames, feeds, tmpl, *outPath); err != nil {
+			log.Printf("could not render %s: %v", cat, err)
 		}
 	}
 
-	feeds, err := fetchAll(client, urls)
-	if err != nil {
-		logger.Printf("could not fetch feeds: %v", err)
+	if len(allFeeds) > *maxItems {
+		allFeeds = allFeeds[:*maxItems]
 	}
+	if err := render("index", catNames, allFeeds, tmpl, *outPath); err != nil {
+		log.Printf("could not render index: %v", err)
+	}
+}
+
+func render(category string, categories []string, feeds []*gofeed.Feed, tmpl *template.Template, outPath string) error {
 	var items []item
 	for _, f := range feeds {
 		for _, i := range f.Items {
@@ -58,31 +104,20 @@ func main() {
 		}
 	}
 	sort.Sort(sort.Reverse(sortByPublished(items)))
-	if len(items) > *maxItems {
-		items = items[:*maxItems]
-	}
-
-	tmpl, err := template.New(path.Base(*tmplPath)).Funcs(template.FuncMap{
-		"sanitize": bluemonday.StrictPolicy().Sanitize,
-		"trim":     strings.TrimSpace,
-	}).Parse(feedTmpl)
-	if *tmplPath != "" {
-		tmpl, err = tmpl.ParseFiles(*tmplPath)
-	}
-	if err != nil {
-		logger.Fatalf("could not parse template: %v", err)
-	}
 
 	data := struct {
-		Items   []item
-		Updated time.Time
-		Version string
-	}{items, time.Now(), version}
-	w, err := os.Create(*outPath)
+		Category   string
+		Categories []string
+		Items      []item
+		Updated    time.Time
+		Version    string
+	}{category, categories, items, time.Now(), version}
+	w, err := os.Create(path.Join(outPath, category+".html"))
 	if err != nil {
-		logger.Fatalf("could not generate output file: %v", err)
+		return errors.Wrap(err, "could not generate output file")
 	}
 	if err := tmpl.Execute(w, data); err != nil {
-		logger.Fatalf("could not execute template: %v", err)
+		return errors.Wrap(err, "could not execute template")
 	}
+	return nil
 }

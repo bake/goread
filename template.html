@@ -1,44 +1,60 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-		<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 
-		<title>goread</title>
-	</head>
-	<body>
-		<div class="container pt-4">
-			{{range .Items}}
-				<div class="card shadow-sm mb-3">
-					<div class="card-body">
-						<h5 class="card-title">
-							<a href="{{.Link}}" target="_blank">
-								{{.Title | sanitize | trim}}
-							</a>
-						</h5>
-						<p class="card-text text-truncate">
-							{{.Description | sanitize | trim}}
-							{{.Content | sanitize | trim}}
-						</p>
-						<p class="card-text">
-							<small class="mr-3">
-								<a href="{{.Feed.Link}}" class="text-muted">{{.Feed.Title | sanitize | trim}}</a>
-							</small>
-							<small class="mr-3 text-muted">
-								{{.Time.Format "02. Jan 2006"}}
-							</small>
-						</p>
-					</div>
-				</div>
-			{{end}}
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" />
 
-			<footer>
-				<p class="text-muted">
-					Updated {{.Updated.Format "2006-01-02 15:04:05"}}. Version {{.Version}}.
-				</p>
-			</footer>
+	<title>{{.Category}} - goread</title>
+</head>
+
+<body>
+	<nav class="navbar navbar-expand navbar-light bg-light">
+		<div class="container px-4">
+			<a class="navbar-brand" href="index.html">goread</a>
+			<ul class="navbar-nav">
+				{{range .Categories}}
+				<li class="nav-item">
+					<a class="nav-link" href="{{.}}.html">{{.}}</a>
+				</li>
+				{{end}}
+			</ul>
 		</div>
-	</body>
+	</nav>
+
+	<div class="container">
+		{{range.Items}}
+		<div class="card shadow-sm mt-3">
+			<div class="card-body">
+				<h5 class="card-title">
+					<a href="{{.Link}}" target="_blank">
+						{{.Title | sanitize | trim}}
+					</a>
+				</h5>
+				<p class="card-text text-truncate">
+					{{.Description | sanitize | trim | truncate}}
+					{{.Content | sanitize | trim | truncate}}
+				</p>
+				<p class="card-text">
+					<small class="mr-3">
+						<a href="{{.Feed.Link}}" class="text-muted">{{.Feed.Title | sanitize | trim}}</a>
+					</small>
+					<small class="mr-3 text-muted">
+						{{.Time.Format "02. Jan 2006"}}
+					</small>
+				</p>
+			</div>
+		</div>
+		{{end}}
+
+		<footer class="my-3">
+			<p class="text-muted">
+				Updated {{.Updated.Format "02. Jan 2006 at 15:04"}}. Version {{.Version}}.
+			</p>
+		</footer>
+	</div>
+</body>
+
 </html>

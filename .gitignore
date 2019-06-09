@@ -1,4 +1,4 @@
-feeds.html
-feeds.txt
+feeds.yml
+gin-bin
 goread
 template.go
