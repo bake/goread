@@ -8,7 +8,7 @@ Similar to [rawdog](https://offog.org/code/rawdog/) and
 Configuration happens through a simple YAML file containing categories and their
 subscriptions. It comes with a built in template that can be overwritten.
 
-![Screenshot](/screenshot.png)
+See the [Screenshot](/screenshot.png).
 
 ## Basic Usage
 
