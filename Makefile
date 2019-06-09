@@ -1,5 +1,6 @@
-LDFLAGS=-ldflags "-X main.version=`git rev-list -1 HEAD`"
+LDFLAGS=-ldflags "-X main.version=`git describe`"
 
 default:
 	go generate
-	go build ${LDF
+	GOOS=darwin GOARCH=amd64 go build -o goread-darwin-amd64 ${LDFLAGS}
+	GOOS=linux GOARCH=amd64 go build -o goread-linux-amd64 ${LDFLAGS}
