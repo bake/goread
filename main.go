@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/microcosm-cc/bluemonday"
-	"github.com/mmcdole/gofeed"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -24,8 +23,9 @@ func main() {
 	inPath := flag.String("in", "feeds.yml", "Path to a list of feed URLs")
 	outPath := flag.String("out", ".", "Path to generated HTML")
 	tmplPath := flag.String("template", "", "Path to the HTML template")
-	maxItems := flag.Int("max-items", 100, "Max number of items")
+	maxItems := flag.Int("max-items", 100, "Max number of items per page")
 	concurrent := flag.Int64("n", 5, "Number of concurrent downloads")
+	truncateLen := flag.Int("truncate-length", 256, "Number of characters per feed item")
 	flag.Parse()
 
 	r, err := os.Open(*inPath)
@@ -47,10 +47,10 @@ func main() {
 		"sanitize": bluemonday.StrictPolicy().Sanitize,
 		"trim":     strings.TrimSpace,
 		"truncate": func(str string) string {
-			if len(str) <= 256 {
+			if len(str) <= *truncateLen {
 				return str
 			}
-			return str[:256] + " …"
+			return str[:*truncateLen] + " …"
 		},
 	}).Parse(feedTmpl))
 	if *tmplPath != "" {
@@ -60,51 +60,39 @@ func main() {
 		log.Fatalf("could not parse template: %v", err)
 	}
 
-	var allFeeds []*gofeed.Feed
+	var allItems []item
 	for cat, urls := range cats {
-		var feeds []*gofeed.Feed
+		var items []item
 		feedc, errc := fetchAll(urls, *concurrent)
-		for i := 0; i < len(urls); i++ {
+		for range urls {
 			select {
 			case feed := <-feedc:
-				feeds = append(feeds, feed)
+				for _, item := range feed.Items {
+					items = append(items, newItem(item, feed))
+				}
 			case err := <-errc:
 				log.Printf("could not fetch feed from %s: %v\n", cat, err)
 			}
 		}
-		if len(feeds) > *maxItems {
-			feeds = feeds[:*maxItems]
+		if len(items) > *maxItems {
+			items = items[:*maxItems]
 		}
-		allFeeds = append(allFeeds, feeds...)
-		if err := render(cat, catNames, feeds, tmpl, *outPath); err != nil {
+		allItems = append(allItems, items...)
+		if err := render(cat, catNames, items, tmpl, *outPath); err != nil {
 			log.Printf("could not render %s: %v", cat, err)
 		}
 	}
 
-	if len(allFeeds) > *maxItems {
-		allFeeds = allFeeds[:*maxItems]
+	if len(allItems) > *maxItems {
+		allItems = allItems[:*maxItems]
 	}
-	if err := render("index", catNames, allFeeds, tmpl, *outPath); err != nil {
+	if err := render("index", catNames, allItems, tmpl, *outPath); err != nil {
 		log.Printf("could not render index: %v", err)
 	}
 }
 
-func render(category string, categories []string, feeds []*gofeed.Feed, tmpl *template.Template, outPath string) error {
-	var items []item
-	for _, f := range feeds {
-		for _, i := range f.Items {
-			t := time.Time{}
-			if i.PublishedParsed != nil {
-				t = *i.PublishedParsed
-			}
-			if i.UpdatedParsed != nil {
-				t = *i.UpdatedParsed
-			}
-			items = append(items, item{*i, *f, t})
-		}
-	}
+func render(category string, categories []string, items []item, tmpl *template.Template, outPath string) error {
 	sort.Sort(sort.Reverse(sortByPublished(items)))
-
 	data := struct {
 		Category   string
 		Categories []string

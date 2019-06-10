@@ -12,6 +12,17 @@ type item struct {
 	Time time.Time
 }
 
+func newItem(base *gofeed.Item, feed *gofeed.Feed) item {
+	var t time.Time
+	if base.PublishedParsed != nil {
+		t = *base.PublishedParsed
+	}
+	if base.UpdatedParsed != nil {
+		t = *base.UpdatedParsed
+	}
+	return item{*base, *feed, t}
+}
+
 type sortByPublished []item
 
 func (is sortByPublished) Len() int           { return len(is) }
