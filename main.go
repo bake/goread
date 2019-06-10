@@ -77,12 +77,14 @@ func main() {
 		if len(items) > *maxItems {
 			items = items[:*maxItems]
 		}
+		sort.Sort(sort.Reverse(sortByPublished(items)))
 		allItems = append(allItems, items...)
 		if err := render(cat, catNames, items, tmpl, *outPath); err != nil {
 			log.Printf("could not render %s: %v", cat, err)
 		}
 	}
 
+	sort.Sort(sort.Reverse(sortByPublished(allItems)))
 	if len(allItems) > *maxItems {
 		allItems = allItems[:*maxItems]
 	}
@@ -92,7 +94,6 @@ func main() {
 }
 
 func render(category string, categories []string, items []item, tmpl *template.Template, outPath string) error {
-	sort.Sort(sort.Reverse(sortByPublished(items)))
 	data := struct {
 		Category   string
 		Categories []string
