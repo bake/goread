@@ -38,7 +38,7 @@ $
 
 The `-template` flag can be used to replace the defaut template. This repository
 contains an additional one, [plain.html](/plain.html), which does not use any
-styling.
+external styling.
 
 ```bash
 $ goread -template plain.html
