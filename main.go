@@ -74,10 +74,10 @@ func main() {
 				log.Printf("could not fetch feed from %s: %v\n", cat, err)
 			}
 		}
+		sort.Sort(sort.Reverse(sortByPublished(items)))
 		if len(items) > *maxItems {
 			items = items[:*maxItems]
 		}
-		sort.Sort(sort.Reverse(sortByPublished(items)))
 		allItems = append(allItems, items...)
 		if err := render(cat, catNames, items, tmpl, *outPath); err != nil {
 			log.Printf("could not render %s: %v", cat, err)
