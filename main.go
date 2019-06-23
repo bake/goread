@@ -1,4 +1,5 @@
 //go:generate go run generate.go
+//go:generate go fmt template.go
 
 package main
 
