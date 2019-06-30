@@ -4,47 +4,52 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/mmcdole/gofeed"
-	"github.com/pkg/errors"
+	"github.com/bake/goread/feed"
 	"golang.org/x/sync/semaphore"
 )
 
-func fetch(url string) (*gofeed.Feed, error) {
-	res, err := http.Get(url)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not get feed at %s", url)
-	}
-	defer res.Body.Close()
-	fp := gofeed.NewParser()
-	f, err := fp.Parse(res.Body)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not parse feed at %s", url)
-	}
-	return f, nil
+type request struct {
+	cat, url string
 }
 
-func fetchAll(urls []string, n int64) (chan *gofeed.Feed, chan error) {
+type response struct {
+	request
+	feed *feed.Feed
+	err  error
+}
+
+// fetch accepts the number of parallel downloads and returns a request and a
+// response channel. The caller is responsible to close the request channel
+// after all requests are enqueued, the response chan gets closed automatically.
+func fetch(n int64, c *http.Client) (chan<- request, <-chan response) {
 	sem := semaphore.NewWeighted(n)
 	ctx := context.Background()
-	feedc := make(chan *gofeed.Feed)
-	errc := make(chan error)
+	reqc := make(chan request)
+	resc := make(chan response)
 	go func() {
-		defer close(errc)
-		defer close(feedc)
-		for _, url := range urls {
+		defer close(resc)
+		defer sem.Acquire(ctx, n)
+		for req := range reqc {
 			sem.Acquire(ctx, 1)
-			url := url
-			go func() {
+			go func(req request) {
 				defer sem.Release(1)
-				feed, err := fetch(url)
-				if err != nil {
-					errc <- err
-					return
-				}
-				feedc <- feed
-			}()
+				feed, err := feed.NewParser(c).ParseURL(req.url)
+				resc <- response{req, feed, err}
+			}(req)
 		}
-		sem.Acquire(ctx, n)
 	}()
-	return feedc, errc
+	return reqc, resc
+}
+
+func fetchAll(n int64, fs feeds) <-chan response {
+	reqc, resc := fetch(n, &http.Client{})
+	go func() {
+		defer close(reqc)
+		for cat, urls := range fs {
+			for _, url := range urls {
+				reqc <- request{cat, url}
+			}
+		}
+	}()
+	return resc
 }

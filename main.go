@@ -5,20 +5,20 @@ package main
 
 import (
 	"flag"
+	"html/template"
 	"log"
 	"os"
 	"path"
 	"sort"
-	"strings"
-	"text/template"
-	"time"
 
-	"github.com/microcosm-cc/bluemonday"
-	"github.com/pkg/errors"
+	"github.com/bake/goread/feed"
+	"github.com/bake/goread/funcs"
 	"gopkg.in/yaml.v2"
 )
 
 var version = "development"
+
+type feeds map[string][]string
 
 func main() {
 	inPath := flag.String("in", "feeds.yml", "Path to a list of feed URLs")
@@ -29,85 +29,69 @@ func main() {
 	truncateLen := flag.Int("truncate-length", 256, "Number of characters per feed item")
 	flag.Parse()
 
-	r, err := os.Open(*inPath)
+	p := page{
+		out:     *outPath,
+		max:     *maxItems,
+		Version: version,
+	}
+
+	var err error
+	p.tmpl, err = template.
+		New(path.Base(*tmplPath)).
+		Funcs(funcs.FuncMap(*truncateLen)).
+		Parse(feedTmpl)
 	if err != nil {
-		log.Fatalf("could not open feeds: %v", err)
+		log.Fatalf("could not parse internal template: %v", err)
 	}
-	var cats map[string][]string
-	if err := yaml.NewDecoder(r).Decode(&cats); err != nil {
-		log.Fatal(err)
-	}
-
-	var catNames []string
-	for cat := range cats {
-		catNames = append(catNames, cat)
-	}
-	sort.Strings(catNames)
-
-	tmpl := template.Must(template.New(path.Base(*tmplPath)).Funcs(template.FuncMap{
-		"sanitize": bluemonday.StrictPolicy().Sanitize,
-		"trim":     strings.TrimSpace,
-		"truncate": func(str string) string {
-			if len(str) <= *truncateLen {
-				return str
-			}
-			return str[:*truncateLen] + " …"
-		},
-	}).Parse(feedTmpl))
 	if *tmplPath != "" {
-		tmpl, err = tmpl.ParseFiles(*tmplPath)
+		p.tmpl, err = p.tmpl.ParseFiles(*tmplPath)
 	}
 	if err != nil {
 		log.Fatalf("could not parse template: %v", err)
 	}
 
-	var allItems []item
-	for cat, urls := range cats {
-		var items []item
-		feedc, errc := fetchAll(urls, *concurrent)
-		for range urls {
-			select {
-			case feed := <-feedc:
-				for _, item := range feed.Items {
-					items = append(items, newItem(item, feed))
-				}
-			case err := <-errc:
-				log.Printf("could not fetch feed from %s: %v\n", cat, err)
-			}
-		}
-		sort.Sort(sort.Reverse(sortByPublished(items)))
-		if len(items) > *maxItems {
-			items = items[:*maxItems]
-		}
-		allItems = append(allItems, items...)
-		if err := render(cat, catNames, items, tmpl, *outPath); err != nil {
-			log.Printf("could not render %s: %v", cat, err)
-		}
-	}
-
-	sort.Sort(sort.Reverse(sortByPublished(allItems)))
-	if len(allItems) > *maxItems {
-		allItems = allItems[:*maxItems]
-	}
-	if err := render("index", catNames, allItems, tmpl, *outPath); err != nil {
-		log.Printf("could not render index: %v", err)
-	}
-}
-
-func render(category string, categories []string, items []item, tmpl *template.Template, outPath string) error {
-	data := struct {
-		Category   string
-		Categories []string
-		Items      []item
-		Updated    time.Time
-		Version    string
-	}{category, categories, items, time.Now(), version}
-	w, err := os.Create(path.Join(outPath, category+".html"))
+	r, err := os.Open(*inPath)
 	if err != nil {
-		return errors.Wrap(err, "could not generate output file")
+		log.Fatalf("could not open feeds: %v", err)
 	}
-	if err := tmpl.Execute(w, data); err != nil {
-		return errors.Wrap(err, "could not execute template")
+	defer r.Close()
+	var fs feeds
+	if err := yaml.NewDecoder(r).Decode(&fs); err != nil {
+		log.Fatalf("could not decode %s: %v", path.Base(*inPath), err)
 	}
-	return nil
+
+	var items []*feed.Item
+	for res := range fetchAll(*concurrent, fs) {
+		if res.err != nil {
+			log.Printf("could not get %s: %v", res.url, res.err)
+			continue
+		}
+		for _, item := range res.feed.Items {
+			item.Category = res.cat
+			items = append(items, item)
+		}
+	}
+	sort.Sort(sort.Reverse(feed.SortByDate(items)))
+
+	cats := map[string][]*feed.Item{"index": items}
+	feeds := map[string][]*feed.Item{}
+	hash := funcs.Hash()
+	for _, item := range items {
+		cats[item.Category] = append(cats[item.Category], item)
+		feeds[hash(item.Feed.Link)] = append(feeds[hash(item.Feed.Link)], item)
+	}
+	for cat := range cats {
+		p.Categories = append(p.Categories, cat)
+	}
+	sort.Strings(p.Categories)
+	for cat, items := range cats {
+		if err := p.render(cat, cat, items); err != nil {
+			log.Fatalf("could not render %s: %v", cat, err)
+		}
+	}
+	for feed, items := range feeds {
+		if err := p.render(feed, items[0].Feed.Title, items); err != nil {
+			log.Fatalf("could not render %s: %v", feed, err)
+		}
+	}
 }
