@@ -36,12 +36,12 @@ $
 
 ## Use a custom template
 
-The `-template` flag can be used to replace the defaut template. This repository
-contains an additional one, [plain.html](/plain.html), which does not use any
-external styling.
+The `-template` flag can be used to replace the defaut template. The
+[default template](/template.html) can be used as an starting point for a custom
+one.
 
 ```bash
-$ goread -template plain.html
+$ goread -template template.html
 $
 ```
 
