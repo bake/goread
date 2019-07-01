@@ -40,7 +40,7 @@
 		}
 
 		article>h2 {
-			margin: 0;
+			margin-bottom: 0;
 		}
 
 		footer,
@@ -55,9 +55,7 @@
 
 		h1,
 		ul li,
-		article>h2,
-		article>small,
-		article>p,
+		article>*,
 		footer {
 			margin: 0;
 			margin-bottom: .5rem;
@@ -80,13 +78,11 @@
 		<h2>
 			<a href="{{.Link}}" target="_blank">{{.Title | sanitize | trim}}</a>
 		</h2>
-		<p>
-			<small>
-				by <a href="{{.Feed.Link | hash}}.html">{{.Feed.Title | sanitize | trim}}</a>
-				in <a href="{{.Category}}.html">{{.Category}}</a>
-				on {{.Time.Format "02. Jan 2006"}}
-			</small>
-		</p>
+		<small>
+			by <a href="{{.Feed.Link | hash}}.html">{{.Feed.Title | sanitize | trim}}</a>
+			in <a href="{{.Category}}.html">{{.Category}}</a>
+			on {{.Time.Format "02. Jan 2006"}}
+		</small>
 		<p>
 			{{.Description | sanitize | trim | truncate}}
 			{{.Content | sanitize | trim | truncate}}
