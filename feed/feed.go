@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mmcdole/gofeed"
+	"github.com/pkg/errors"
 )
 
 type Feed struct {
@@ -48,6 +49,9 @@ func NewParser(c *http.Client) *Parser {
 
 func (p *Parser) ParseURL(url string) (*Feed, error) {
 	f, err := p.Parser.ParseURL(url)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not parse feed")
+	}
 	items := make([]*Item, len(f.Items))
 	for i, item := range f.Items {
 		items[i] = &Item{Item: item, Feed: f}
